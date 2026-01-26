@@ -89,7 +89,12 @@ try {
         throw Error ("No such file")
     }
 
-    csv()
+    csv({
+        colParser: {
+        "X": "number",
+        "Y": "number"
+        }
+    })
     .fromFile(filePath)
     .then((jsonObj) => {
         res.setHeader('Content-Type', 'application/json');
