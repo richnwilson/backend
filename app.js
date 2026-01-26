@@ -3,6 +3,7 @@ const app = express();
 import mongoose from "mongoose";
 import multer from 'multer';
 import { promises as fsPromises} from 'node:fs';
+import jwt from 'jsonwebtoken';
 
 import csv from 'csvtojson';
 
@@ -12,7 +13,8 @@ import { dirname } from 'node:path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-import uploads from './models/uploads.js'
+import uploads from './models/uploads.js';
+import users from './models/users.js';
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -38,7 +40,7 @@ dotenv.config({
     path: './.env'
 });
 
-const { URL }= process.env;
+const { URL, SECRET_KEY }= process.env;
 
 mongoose
     .connect(URL)
@@ -49,6 +51,34 @@ mongoose
         console.log(e)
     })
 
+// Register Route
+app.post('/register', async (req, res) => {
+    const { email, password } = req.body;
+    try {
+        const newUser = new users({ email, password });
+        await newUser.save();
+        res.status(201).json({ message: "User created. Please login with new credentials" });
+    } catch (err) {
+        res.status(400).json({ message: "Email already exists" });
+    }
+});
+
+// Login Route
+app.post('/login', async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        const user = await users.findOne({ email }).select({password: 1}).exec();
+
+        if (!(user && await user.comparePassword(password))) {
+            return res.status(400).json({ message: "Invalid credentials" });
+        }
+
+        const token = jwt.sign({ id: user._id }, SECRET_KEY, { expiresIn: '1h' });
+        res.status(200).json({ token });
+    } catch(e) {
+        res.status(400).json({ message: e });
+    }
+});    
 
 // Allow stored files to be accessible via browser
 app.use("/uploads", express.static("uploads"))    
