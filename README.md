@@ -1,4 +1,4 @@
-# Backend application to use with any work demos
+# Backend application to use with any job interview demos
 
 ## Requirements
 - node v25
