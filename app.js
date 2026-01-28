@@ -35,6 +35,9 @@ app.use(cors());
 // Middleware to parse raw body as text
 app.use(express.text({ type: 'text/csv' }));
 
+// Allow proxy from frontend app as the Caddy request appears as internal IP
+app.set('trust proxy', 1); // trust first proxy
+
 import dotenv from 'dotenv';
 dotenv.config({
     path: './.env'
