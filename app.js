@@ -34,7 +34,14 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage })
 
-app.use(cors());
+const corsOptions = {
+  origin: FRONT_END, // Explicit origin
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true, // Required if you are sending cookies or JWE in cookies
+  optionsSuccessStatus: 200 // Some legacy browsers choke on 204
+};
+app.use(cors(corsOptions));
 
 app.use(express.json());
 
