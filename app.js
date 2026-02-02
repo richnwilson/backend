@@ -16,7 +16,7 @@ dotenv.config({
     path: './.env'
 });
 
-const { URL, SECRET_KEY }= process.env;
+const { URL, SECRET_KEY, FRONT_END }= process.env;
 
 import uploads from './models/uploads.js';
 import users from './models/users.js';
@@ -35,7 +35,7 @@ const upload = multer({ storage: storage })
 
 app.use(express.json());
 import cors from "cors";
-app.use(cors());
+app.use(cors({origin: FRONT_END}));
 
 // Middleware to parse raw body as text
 app.use(express.text({ type: 'text/csv' }));
