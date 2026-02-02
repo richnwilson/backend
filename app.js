@@ -5,6 +5,7 @@ import multer from 'multer';
 import { promises as fsPromises} from 'node:fs';
 import { jwtDecrypt } from 'jose';
 import csv from 'csvtojson';
+import cors from 'cors';
 
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
@@ -33,8 +34,16 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage })
 
+const corsOptions = {
+  origin: FRONT_END, // Explicit origin
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true, // Required if you are sending cookies or JWE in cookies
+  optionsSuccessStatus: 200 // Some legacy browsers choke on 204
+};
+app.use(cors(corsOptions));
+
 app.use(express.json());
-// CORS handled in the Caddy config file on server
 
 // Middleware to parse raw body as text
 app.use(express.text({ type: 'text/csv' }));
