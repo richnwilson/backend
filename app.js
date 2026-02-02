@@ -3,15 +3,20 @@ const app = express();
 import mongoose from "mongoose";
 import multer from 'multer';
 import { promises as fsPromises} from 'node:fs';
-import jwt from 'jsonwebtoken';
-
+import { jwtDecrypt } from 'jose';
 import csv from 'csvtojson';
 
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+
+import dotenv from 'dotenv';
+dotenv.config({
+    path: './.env'
+});
+
+const { URL, SECRET_KEY }= process.env;
 
 import uploads from './models/uploads.js';
 import users from './models/users.js';
@@ -38,13 +43,6 @@ app.use(express.text({ type: 'text/csv' }));
 // Allow proxy from frontend app as the Caddy request appears as internal IP
 app.set('trust proxy', 1); // trust first proxy
 
-import dotenv from 'dotenv';
-dotenv.config({
-    path: './.env'
-});
-
-const { URL, SECRET_KEY }= process.env;
-
 mongoose
     .connect(URL)
     .then(() => {
@@ -53,6 +51,24 @@ mongoose
     .catch((e) => {
         console.log(e)
     })
+
+// Middleware to decrypt and protect routes
+const authenticateJWE = async (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).send('Missing token');
+
+  try {
+    // 1. Convert the secret string to the required Uint8Array
+    const key = new TextEncoder().encode(SECRET_KEY);
+    // 2. Decrypt the token
+    // No need to specify 'dir' or 'A256GCM'; it reads these from the token header
+    const { payload } = await jwtDecrypt(token, key);
+    req.user = payload; // Contains the decrypted email
+    next();
+  } catch (err) {
+    res.status(403).send('Invalid or expired token');
+  }
+};
 
 // Register Route
 app.post('/register', async (req, res) => {
@@ -70,14 +86,8 @@ app.post('/register', async (req, res) => {
 app.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
-        const user = await users.findOne({ email }).select({password: 1}).exec();
-
-        if (!(user && await user.comparePassword(password))) {
-            return res.status(400).json({ message: "Invalid credentials" });
-        }
-
-        const token = jwt.sign({ id: user._id }, SECRET_KEY, { expiresIn: '1h' });
-        res.status(200).json({ token });
+        const { token , jwe } = await users.findByCredentials(email, password)
+        res.status(200).json({ token, jwe });
     } catch(e) {
         res.status(400).json({ message: e });
     }
@@ -90,8 +100,10 @@ app.get("/", async (req,res) => {
     res.send("Success")
 })
 
-app.post("/uploadFile", upload.single("file"), async (req, res) => {
+app.post("/uploadFile", authenticateJWE, upload.single("file"), async (req, res) => {
     try {
+        // NOTE: Can reference req.user.email to find out who authenticated request is coming from
+
         const { file: { filename = ""}, body: { title = ""}} = req
         if (filename === "" || title === "") res.status(400).send("Missing fields for title or file")
         await uploads.create({title, filename})
@@ -101,8 +113,10 @@ app.post("/uploadFile", upload.single("file"), async (req, res) => {
     }
 })
 
-app.get("/getFiles", async (req,res) => {
+app.get("/getFiles", authenticateJWE, async (req,res) => {
     try {
+        // NOTE: Can reference req.user.email to find out who authenticated request is coming from
+
         const data = await uploads.find({}).lean().select({_id: 0, createdAt: 0, updatedAt: 0}).exec();
         res.status(200).send({status: "ok",data})
     } catch (e) {
@@ -110,8 +124,10 @@ app.get("/getFiles", async (req,res) => {
     }
 })
 
-app.get("/getFile/:filename", async (req,res) => {
+app.get("/getFile/:filename",authenticateJWE, async (req,res) => {
 try {
+    // NOTE: Can reference req.user.email to find out who authenticated request is coming from
+
     const { filename = ''} = req.params;
     if (filename === "")  res.status(400).send("Missing file")
 
