@@ -35,7 +35,7 @@ const upload = multer({ storage: storage })
 
 app.use(express.json());
 import cors from "cors";
-app.use(cors({origin: FRONT_END}));
+app.use(cors());
 
 // Middleware to parse raw body as text
 app.use(express.text({ type: 'text/csv' }));
